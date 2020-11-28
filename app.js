@@ -41,7 +41,7 @@ class App {
             0.1, // Nearest plane
             1000 // Farthest plane
         )
-
+        this.camera.position.y = 15;
         // Setting up a WebGL renderer
 
         this.renderer = new THREE.WebGL1Renderer();
@@ -131,6 +131,9 @@ class App {
     setupXR() {
         this.renderer.xr.enabled = true;
         document.body.appendChild(VRButton.createButton(this.renderer));
+
+        //this.headsetPos = xrFrame.getViwerPose(); 
+
     }
 
     skybox() {
@@ -142,7 +145,7 @@ class App {
     }
 
     sun() {
-        const sunCtr = [0, 0, 100];    // Static position for now
+        const sunCtr = [0, 250, 0];    // Static position for now
         this.sun = new THREE.Group();
 
         this.textureSun = new THREE.TextureLoader().load('./Assets/Images/sun.png');
@@ -174,7 +177,7 @@ class App {
         */
         //********NOTE:******** typically webxr uses y-axis as pointing upwwards and z-axis as looking forwards as default 
         
-        const groundDim = [35,5,25]; //w,h,depth
+        const groundDim = [15,1.5,15]; //w,h,depth
         const numbGroundSeg = [Math.ceil(groundDim[0]/8),Math.ceil(groundDim[1]/2),Math.ceil(groundDim[2]/8)];
         const groundLocation = [0, 0, 0]; //location of origin for object
 
@@ -279,6 +282,7 @@ class App {
 
         this.renderer.render(this.scene, this.camera);
     }
+
 }
 
 export { App };
