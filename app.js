@@ -185,7 +185,7 @@ class App {
         
         //this.groundGeo.dynamic = true; //allows for geometry to change
         //this.groundGeo.mergeVertices(); // checks for duplicate vertices then removes them
-        /*
+        
       
         const xRange = [0,groundDim[0]];
         const yRange = [0, groundDim[1]];
@@ -246,9 +246,9 @@ class App {
 
         }
         
-        */
+        
         this.Ground = new THREE.Mesh(this.groundGeo, this.groundMaterial);
-       //this.Ground.add(this.line);
+       this.Ground.add(this.line);
 
         //place its location:
        this.Ground.position.set(groundLocation[0], groundLocation[1], groundLocation[2]);
