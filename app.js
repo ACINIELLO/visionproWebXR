@@ -185,7 +185,7 @@ class App {
         
         //this.groundGeo.dynamic = true; //allows for geometry to change
         //this.groundGeo.mergeVertices(); // checks for duplicate vertices then removes them
-
+        /*
       
         const xRange = [0,groundDim[0]];
         const yRange = [0, groundDim[1]];
@@ -228,7 +228,7 @@ class App {
         this.groundMaterial.push(new THREE.MeshBasicMaterial({ map: this.Cracked_mud }));
         
         // Add materialIndex to face
-        /*
+        
         var numbFaces = this.groundGeo.faces.length;
         for (var i = 0; i < Math.ceil(numbFaces/3); i++) {
             this.groundGeo.faces[i].materialIndex = 0; //select Grass
@@ -245,10 +245,10 @@ class App {
             this.groundGeo.elementsNeedUpdate = true;
 
         }
-        */
         
+        */
         this.Ground = new THREE.Mesh(this.groundGeo, this.groundMaterial);
-       this.Ground.add(this.line);
+       //this.Ground.add(this.line);
 
         //place its location:
        this.Ground.position.set(groundLocation[0], groundLocation[1], groundLocation[2]);
