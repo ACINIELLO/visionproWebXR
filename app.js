@@ -228,7 +228,7 @@ class App {
         this.groundMaterial.push(new THREE.MeshBasicMaterial({ map: this.Cracked_mud }));
         
         // Add materialIndex to face
-        
+        /*
         var numbFaces = this.groundGeo.faces.length;
         for (var i = 0; i < Math.ceil(numbFaces/3); i++) {
             this.groundGeo.faces[i].materialIndex = 0; //select Grass
@@ -245,7 +245,7 @@ class App {
             this.groundGeo.elementsNeedUpdate = true;
 
         }
-
+        */
         
         this.Ground = new THREE.Mesh(this.groundGeo, this.groundMaterial);
        this.Ground.add(this.line);
