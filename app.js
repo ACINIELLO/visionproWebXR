@@ -109,8 +109,8 @@ class App {
         this.initScene();
         this.setupXR();
         //visually add an origin to the general scene to see orientation for each axis (from three.js documentation):
-        this.axesHelper = new THREE.AxesHelper(15);
-        this.scene.add(this.axesHelper);
+        //this.axesHelper = new THREE.AxesHelper(15);
+        //this.scene.add(this.axesHelper);
 
         
         this.renderer.setAnimationLoop(this.render.bind(this));
@@ -173,7 +173,7 @@ class App {
 
         */
 
-        const groundDim = [50,50,5]; //w,h,depth
+        const groundDim = [50,5,50]; //w,h,depth
         const numbGroundSeg = [20,20,5];
         const groundLocation = [0, 0, 0]; //location of origin for object
 
