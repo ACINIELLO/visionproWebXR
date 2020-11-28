@@ -174,8 +174,8 @@ class App {
         */
         //********NOTE:******** typically webxr uses y-axis as pointing upwwards and z-axis as looking forwards as default 
         
-        const groundDim = [35,35,1.5]; //w,h,depth
-        const numbGroundSeg = [Math.ceil(groundDim[0]/10),Math.ceil(groundDim[1]/10),Math.ceil(groundDim[2]/10)];
+        const groundDim = [35,5,25]; //w,h,depth
+        const numbGroundSeg = [Math.ceil(groundDim[0]/8),Math.ceil(groundDim[1]/2),Math.ceil(groundDim[2]/8)];
         const groundLocation = [0, 0, 0]; //location of origin for object
 
         this.groundGeo = new THREE.BoxGeometry(groundDim[0], groundDim[1], groundDim[2], numbGroundSeg[0], numbGroundSeg[1], numbGroundSeg[2]); //(width,height,depth #widthSegments,#heightSegments,#depthSegments)
@@ -184,9 +184,9 @@ class App {
         this.groundGeo.mergeVertices(); // checks for duplicate vertices then removes them
 
       
-        const xRange = [0,33];
-        const yRange = [0, 33];
-        const zRange = [0, 3];
+        const xRange = [0,groundDim[0]];
+        const yRange = [0, groundDim[1]];
+        const zRange = [0, groundDim[2]];
         var numbVertices = this.groundGeo.vertices.length;
         //generate random vertices and each time site is rendered: (ie-new terrain each time)
         for (var i = 0; i < numbVertices; i++) {
