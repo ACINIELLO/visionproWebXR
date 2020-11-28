@@ -145,7 +145,7 @@ class App {
     }
 
     sun() {
-        const sunCtr = [0, 250, 0];    // Static position for now
+        const sunCtr = [0, 0, 100];    // Static position for now
         this.sun = new THREE.Group();
 
         this.textureSun = new THREE.TextureLoader().load('./Assets/Images/sun.png');
@@ -184,7 +184,7 @@ class App {
         this.groundGeo = new THREE.BoxGeometry(groundDim[0], groundDim[1], groundDim[2], numbGroundSeg[0], numbGroundSeg[1], numbGroundSeg[2]); //(width,height,depth #widthSegments,#heightSegments,#depthSegments)
         
         //this.groundGeo.dynamic = true; //allows for geometry to change
-        this.groundGeo.mergeVertices(); // checks for duplicate vertices then removes them
+        //this.groundGeo.mergeVertices(); // checks for duplicate vertices then removes them
 
       
         const xRange = [0,groundDim[0]];
@@ -196,16 +196,15 @@ class App {
             //this.groundGeo.vertices[i].x = xRange[0] + Math.random() * (xRange[1] - xRange[0]); // use struture of xmin + Math.random() * (xmax-xmin) equation since Math.random() returns a numb from 0-1.
             this.groundGeo.vertices[i].y = yRange[0] + Math.random() * (yRange[1] - yRange[0]);
             //this.groundGeo.vertices[i].z = zRange[0] + Math.random() * (zRange[1] - zRange[0]);
-            this.groundGeo.mergeVertices(); // checks for duplicate vertices then removes them
 
             this.groundGeo.verticesNeedUpdate = true;
-            //this.groundGeo.dynamic = true; //allows for geometry to change
 
        
         }
+        this.groundGeo.mergeVertices(); // checks for duplicate vertices then removes them
 
         // adding grid-lines/wireframe to geometry for better segment visualization: from==>https://discourse.threejs.org/t/about-showing-grid-lines/13616
-
+        
         this.wireframe = new THREE.WireframeGeometry(this.groundGeo);//,this.wireframeMat);
         this.line = new THREE.Line(this.wireframe);
         this.line.material.depthWrite = false;
@@ -249,10 +248,10 @@ class App {
 
         
         this.Ground = new THREE.Mesh(this.groundGeo, this.groundMaterial);
-        this.Ground.add(this.line);
+       this.Ground.add(this.line);
 
         //place its location:
-        this.Ground.position.set(groundLocation[0], groundLocation[1], groundLocation[2]);
+       this.Ground.position.set(groundLocation[0], groundLocation[1], groundLocation[2]);
 
 
         this.scene.add(this.Ground);
