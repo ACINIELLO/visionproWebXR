@@ -109,8 +109,8 @@ class App {
         this.initScene();
         this.setupXR();
         //visually add an origin to the general scene to see orientation for each axis (from three.js documentation):
-        //this.axesHelper = new THREE.AxesHelper(15);
-        //this.scene.add(this.axesHelper);
+        this.axesHelper = new THREE.AxesHelper(30);
+        this.scene.add(this.axesHelper);
 
         
         this.renderer.setAnimationLoop(this.render.bind(this));
@@ -134,7 +134,7 @@ class App {
     }
 
     skybox() {
-        this.textureSky = new THREE.TextureLoader().load('./Assets/Images/Sky.jpg');
+        this.textureSky = new THREE.TextureLoader().load('./Assets/Images/Runway.jpg');
         this.geometryUniverse = new THREE.SphereBufferGeometry(1000, 100);
         this.materialUniverse = new THREE.MeshBasicMaterial({ map: this.textureSky, side: THREE.BackSide });
         this.universe = new THREE.Mesh(this.geometryUniverse, this.materialUniverse);
@@ -173,7 +173,7 @@ class App {
 
         */
 
-        const groundDim = [25,5,25]; //w(along x-axis),h(along-zaxis),depth(along y-axis)
+        const groundDim = [25,5,25]; //w(along x-axis),h(along-zaxis),depth or length (along y-axis)
         const numbGroundSeg = [Math.ceil(groundDim[0]/4),Math.ceil(groundDim[1]/4),Math.ceil(groundDim[2]/4)];
         const groundLocation = [0, 0, 0]; //location of origin for object
 
@@ -182,12 +182,7 @@ class App {
         //this.groundGeo.dynamic = true; //allows for geometry to change
         this.groundGeo.mergeVertices(); // checks for duplicate vertices then removes them
 
-        //find out info. on cube vertices and faces by printing to console:
-        /*
-        console.log(this.groundGeo.faces);
-        console.log(this.groundGeo.vertices);
-        */
-        
+      
         const xRange = [0,33];
         const yRange = [0, 33];
         const zRange = [0, 3];
@@ -202,8 +197,7 @@ class App {
             this.groundGeo.verticesNeedUpdate = true;
             //this.groundGeo.dynamic = true; //allows for geometry to change
 
-           // this.groundGeo._dirtyVertices = true;
-            //groundGeo.computeCentroids(); // allows PlaneGeometry to not appear flat after vertice changes
+       
         }
 
         // adding grid-lines/wireframe to geometry for better segment visualization: from==>https://discourse.threejs.org/t/about-showing-grid-lines/13616
