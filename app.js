@@ -173,7 +173,7 @@ class App {
 
         */
 
-        const groundDim = [50,5,50]; //w,h,depth
+        const groundDim = [50,50,5]; //w,h,depth
         const numbGroundSeg = [20,20,5];
         const groundLocation = [0, 0, 0]; //location of origin for object
 
