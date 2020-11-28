@@ -173,8 +173,8 @@ class App {
 
         */
 
-        const groundDim = [50,50,5]; //w,h,depth
-        const numbGroundSeg = [20,20,5];
+        const groundDim = [25,5,25]; //w(along x-axis),h(along-zaxis),depth(along y-axis)
+        const numbGroundSeg = [Math.ceil(groundDim[0]/4),Math.ceil(groundDim[1]/4),Math.ceil(groundDim[2]/4)];
         const groundLocation = [0, 0, 0]; //location of origin for object
 
         this.groundGeo = new THREE.BoxGeometry(groundDim[0], groundDim[1], groundDim[2], numbGroundSeg[0], numbGroundSeg[1], numbGroundSeg[2]); //(width,height,depth #widthSegments,#heightSegments,#depthSegments)
