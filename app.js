@@ -174,7 +174,7 @@ class App {
         */
         //********NOTE:******** typically webxr uses y-axis as pointing upwwards and z-axis as looking forwards as default 
         
-        const groundDim = [1.5,35,35]; //w(along x-axis),h(along-zaxis),depth or length (along y-axis)
+        const groundDim = [35,35,1.5]; //w,h,depth
         const numbGroundSeg = [Math.ceil(groundDim[0]/10),Math.ceil(groundDim[1]/10),Math.ceil(groundDim[2]/10)];
         const groundLocation = [0, 0, 0]; //location of origin for object
 
