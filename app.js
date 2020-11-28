@@ -173,7 +173,7 @@ class App {
 
         */
 
-        const groundDim = [5,5,25]; //w(along x-axis),h(along-zaxis),depth or length (along y-axis)
+        const groundDim = [15,5,25]; //w(along x-axis),h(along-zaxis),depth or length (along y-axis)
         const numbGroundSeg = [Math.ceil(groundDim[0]/4),Math.ceil(groundDim[1]/4),Math.ceil(groundDim[2]/4)];
         const groundLocation = [0, 0, 0]; //location of origin for object
 
@@ -204,7 +204,7 @@ class App {
 
         this.wireframe = new THREE.WireframeGeometry(this.groundGeo);//,this.wireframeMat);
         this.line = new THREE.Line(this.wireframe);
-        this.line.material.depthTest = true;
+        this.line.material.depthWrite = true;
         this.line.material.opacity =1;
         this.line.material.transparent = true;
         
