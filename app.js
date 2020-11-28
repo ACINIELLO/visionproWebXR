@@ -134,7 +134,7 @@ class App {
     }
 
     skybox() {
-        this.textureSky = new THREE.TextureLoader().load('./Assets/Images/Runway.jpg');
+        this.textureSky = new THREE.TextureLoader().load('./Assets/Images/Sky.jpg');
         this.geometryUniverse = new THREE.SphereBufferGeometry(1000, 100);
         this.materialUniverse = new THREE.MeshBasicMaterial({ map: this.textureSky, side: THREE.BackSide });
         this.universe = new THREE.Mesh(this.geometryUniverse, this.materialUniverse);
@@ -172,9 +172,10 @@ class App {
         2. how to manipulate non buffer-plane vertices: https://grahamweldon.com/post/2012/01/3d-terrain-generation-with-three.js/
 
         */
-
-        const groundDim = [15,5,25]; //w(along x-axis),h(along-zaxis),depth or length (along y-axis)
-        const numbGroundSeg = [Math.ceil(groundDim[0]/4),Math.ceil(groundDim[1]/4),Math.ceil(groundDim[2]/4)];
+        //********NOTE:******** typically webxr uses y-axis as pointing upwwards and z-axis as looking forwards as default 
+        
+        const groundDim = [1.5,35,35]; //w(along x-axis),h(along-zaxis),depth or length (along y-axis)
+        const numbGroundSeg = [Math.ceil(groundDim[0]/10),Math.ceil(groundDim[1]/10),Math.ceil(groundDim[2]/10)];
         const groundLocation = [0, 0, 0]; //location of origin for object
 
         this.groundGeo = new THREE.BoxGeometry(groundDim[0], groundDim[1], groundDim[2], numbGroundSeg[0], numbGroundSeg[1], numbGroundSeg[2]); //(width,height,depth #widthSegments,#heightSegments,#depthSegments)
@@ -190,8 +191,8 @@ class App {
         //generate random vertices and each time site is rendered: (ie-new terrain each time)
         for (var i = 0; i < numbVertices; i++) {
             //this.groundGeo.vertices[i].x = xRange[0] + Math.random() * (xRange[1] - xRange[0]); // use struture of xmin + Math.random() * (xmax-xmin) equation since Math.random() returns a numb from 0-1.
-            //this.groundGeo.vertices[i].y = yRange[0] + Math.random() * (yRange[1] - yRange[0]);
-            this.groundGeo.vertices[i].z = zRange[0] + Math.random() * (zRange[1] - zRange[0]);
+            this.groundGeo.vertices[i].y = yRange[0] + Math.random() * (yRange[1] - yRange[0]);
+            //this.groundGeo.vertices[i].z = zRange[0] + Math.random() * (zRange[1] - zRange[0]);
             this.groundGeo.mergeVertices(); // checks for duplicate vertices then removes them
 
             this.groundGeo.verticesNeedUpdate = true;
@@ -204,9 +205,10 @@ class App {
 
         this.wireframe = new THREE.WireframeGeometry(this.groundGeo);//,this.wireframeMat);
         this.line = new THREE.Line(this.wireframe);
-        this.line.material.depthWrite = true;
-        this.line.material.opacity =1;
-        this.line.material.transparent = true;
+        this.line.material.depthWrite = false;
+        this.line.material.depthTest = false; 
+        this.line.material.opacity = 1; //controls line visibility
+        this.line.material.transparent = true; // makes it so that line passes through objects
         
         //applying textures to specific faces: from==> https://stackoverflow.com/questions/48385258/threejs-planegeometry-load-texture-to-specific-faces
 
