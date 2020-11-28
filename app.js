@@ -173,7 +173,7 @@ class App {
 
         */
 
-        const groundDim = [25,5,25]; //w(along x-axis),h(along-zaxis),depth or length (along y-axis)
+        const groundDim = [5,5,25]; //w(along x-axis),h(along-zaxis),depth or length (along y-axis)
         const numbGroundSeg = [Math.ceil(groundDim[0]/4),Math.ceil(groundDim[1]/4),Math.ceil(groundDim[2]/4)];
         const groundLocation = [0, 0, 0]; //location of origin for object
 
