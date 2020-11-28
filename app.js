@@ -41,7 +41,7 @@ class App {
             0.1, // Nearest plane
             1000 // Farthest plane
         )
-        this.camera.position.y = 20;
+        this.camera.position.y = 30;
         // Setting up a WebGL renderer
 
         this.renderer = new THREE.WebGL1Renderer();
