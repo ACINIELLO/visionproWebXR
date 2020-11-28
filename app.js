@@ -177,8 +177,8 @@ class App {
         */
         //********NOTE:******** typically webxr uses y-axis as pointing upwwards and z-axis as looking forwards as default 
         
-        const groundDim = [15,1.5,15]; //w,h,depth
-        const numbGroundSeg = [Math.ceil(groundDim[0]/8),Math.ceil(groundDim[1]/2),Math.ceil(groundDim[2]/8)];
+        const groundDim = [8,1.5,8]; //w,h,depth
+        const numbGroundSeg = [Math.ceil(groundDim[0]/2),Math.ceil(groundDim[1]/2),Math.ceil(groundDim[2]/2)];
         const groundLocation = [0, 0, 0]; //location of origin for object
 
         this.groundGeo = new THREE.BoxGeometry(groundDim[0], groundDim[1], groundDim[2], numbGroundSeg[0], numbGroundSeg[1], numbGroundSeg[2]); //(width,height,depth #widthSegments,#heightSegments,#depthSegments)
