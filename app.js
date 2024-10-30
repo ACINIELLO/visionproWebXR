@@ -1,3 +1,4 @@
+/*
 import * as THREE from './Library/THREE/three.module.js';
 import { OrbitControls } from './Library/THREE/jsm/OrbitControls.js';
 import { GLTFLoader } from './Library/THREE/jsm/GLTFLoader.js';
@@ -168,13 +169,13 @@ class App {
 
     ground() {
         //---------------------create ground plane: ----------------------------
-        /*
-        ========================REFERENCES:===================================
-        (using buffer geometry as its faster however harder to manipulate )
-        1. how to manipulate buffer vertices: https://stackoverflow.com/questions/49956422/what-is-difference-between-boxbuffergeometry-vs-boxgeometry-in-three-js
-        2. how to manipulate non buffer-plane vertices: https://grahamweldon.com/post/2012/01/3d-terrain-generation-with-three.js/
+    
+       // ========================REFERENCES:===================================
+     //   (using buffer geometry as its faster however harder to manipulate )
+      //  1. how to manipulate buffer vertices: https://stackoverflow.com/questions/49956422/what-is-difference-between-boxbuffergeometry-vs-boxgeometry-in-three-js
+      //  2. how to manipulate non buffer-plane vertices: https://grahamweldon.com/post/2012/01/3d-terrain-generation-with-three.js/
 
-        */
+        
         //********NOTE:******** typically webxr uses y-axis as pointing upwwards and z-axis as looking forwards as default 
         
         const groundDim = [8,0.8,8]; //w,h,depth
@@ -285,3 +286,4 @@ class App {
 }
 
 export { App };
+*/
