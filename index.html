@@ -362,7 +362,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           }
         }
 
-     /*   if (!inputSource.hand && inputSource.gripSpace) {
+       if (!inputSource.hand && inputSource.gripSpace) {
           let gripPose = frame.getPose(inputSource.gripSpace, refSpace);
           if (gripPose) {
             scene.inputRenderer.addController(gripPose.transform.matrix, inputSource.handedness, inputSource.profiles[0]);
@@ -370,7 +370,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             scene.inputRenderer.hideController(hand_type);
           }
         }
-*/
+
         let offset = 0;
         if (!inputSource.hand) {
           for (const box of boxes[hand_type]) {
