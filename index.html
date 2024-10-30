@@ -452,6 +452,95 @@ function initHands() {
       });
         
       }
+function updateSources(session, frame, refSpace, sources, type) {
+      if(session.visibilityState === 'visible-blurred') {
+        return;
+      }
+      for (let inputSource of sources) {
+        let hand_type = type + inputSource.handedness;
+        if (type == "input_") {
+          let targetRayPose = frame.getPose(inputSource.targetRaySpace, refSpace);
+          if (targetRayPose) {
+            if (inputSource.targetRayMode == 'tracked-pointer') {
+              scene.inputRenderer.addLaserPointer(targetRayPose.transform);
+            }
+
+            let targetRay = new Ray(targetRayPose.transform);
+            let cursorDistance = 2.0;
+            let cursorPos = vec3.fromValues(
+                targetRay.origin.x,
+                targetRay.origin.y,
+                targetRay.origin.z
+                );
+            vec3.add(cursorPos, cursorPos, [
+                targetRay.direction.x * cursorDistance,
+                targetRay.direction.y * cursorDistance,
+                targetRay.direction.z * cursorDistance,
+                ]);
+
+            scene.inputRenderer.addCursor(cursorPos);
+          }
+        }
+
+        if (!inputSource.hand && inputSource.gripSpace) {
+          let gripPose = frame.getPose(inputSource.gripSpace, refSpace);
+          if (gripPose) {
+            scene.inputRenderer.addController(gripPose.transform.matrix, inputSource.handedness, inputSource.profiles[0]);
+          } else {
+            scene.inputRenderer.hideController(hand_type);
+          }
+        }
+
+        let offset = 0;
+        if (!inputSource.hand) {
+          for (const box of boxes[hand_type]) {
+            scene.removeNode(box);
+          }
+          scene.removeNode(indexFingerBoxes[hand_type]);
+
+          continue;
+        } else {
+          let pose = frame.getPose(inputSource.targetRaySpace, refSpace);
+          if (pose === undefined) {
+            console.log("no pose");
+          }
+
+          if (!frame.fillJointRadii(inputSource.hand.values(), radii)) {
+            console.log("no fillJointRadii");
+            continue;
+          }
+          if (!frame.fillPoses(inputSource.hand.values(), refSpace, positions)) {
+            console.log("no fillPoses");
+            continue;
+          }
+          for (const box of boxes[hand_type]) {
+            scene.addNode(box);
+            let matrix = positions.slice(offset * 16, (offset + 1) * 16);
+            let jointRadius = radii[offset];
+            offset++;
+            mat4.getTranslation(box.translation, matrix);
+            mat4.getRotation(box.rotation, matrix);
+            box.scale = [jointRadius, jointRadius, jointRadius];
+          }
+          	
+          // Render a special box for each index finger on each hand	
+          const indexFingerBox = indexFingerBoxes[hand_type];
+          scene.addNode(indexFingerBox);	
+          let joint = inputSource.hand.get('index-finger-tip');	
+          let jointPose = frame.getJointPose(joint, xrRefSpace);	
+          if (jointPose) {	
+            let matrix = jointPose.transform.matrix;
+            mat4.getTranslation(indexFingerBox.translation, matrix);
+            mat4.getRotation(indexFingerBox.rotation, matrix);
+            indexFingerBox.scale = [0.02, 0.02, 0.02];	
+          }
+        }
+      }
+    }
+
+        function updateInputSources(session, frame, refSpace) {
+      updateSources(session, frame, refSpace, session.inputSources, "input_");
+    }
 
     function UpdateInteractables(time) {
       // Add scene objects if not present
@@ -523,52 +612,12 @@ function initHands() {
             ProcessGamepad(source.gamepad, source.handedness, pose);
           }
         }
+      updateInputSources(session, frame, xrRefSpace);
 
              UpdateInteractables(t);       
 
         scene.updateInputSources(frame, refSpace);
         scene.drawXRFrame(frame, pose);
-
-        if (pose) {
-        let glLayer = session.renderState.baseLayer;
-
-        // If we do have a valid pose, bind the WebGL layer's framebuffer,
-        // which is where any content to be displayed on the XRDevice must be
-        // rendered.
-        gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
-
-        // Clear the framebuffer
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        // Loop through each of the views reported by the frame and draw them
-        // into the corresponding viewport.
-        for (let view of pose.views) {
-          let viewport = glLayer.getViewport(view);
-          gl.viewport(viewport.x, viewport.y,
-            viewport.width, viewport.height);
-
-          // Draw this view of the scene. What happens in this function really
-          // isn't all that important. What is important is that it renders
-          // into the XRWebGLLayer's framebuffer, using the viewport into that
-          // framebuffer reported by the current view, and using the
-          // projection matrix and view transform from the current view.
-          // We bound the framebuffer and viewport up above, and are passing
-          // in the appropriate matrices here to be used when rendering.
-          scene.draw(view.projectionMatrix, view.transform);
-        }
-      } else {
-        // There's several options for handling cases where no pose is given.
-        // The simplest, which these samples opt for, is to simply not draw
-        // anything. That way the device will continue to show the last frame
-        // drawn, possibly even with reprojection. Alternately you could
-        // re-draw the scene again with the last known good pose (which is now
-        // likely to be wrong), clear to black, or draw a head-locked message
-        // for the user indicating that they should try to get back to an area
-        // with better tracking. In all cases it's possible that the device
-        // may override what is drawn here to show the user it's own error
-        // message, so it should not be anything critical to the application's
-        // use.
-      }
         scene.endFrame();
       }
 
