@@ -34,11 +34,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   <body>
     <header>
       <details open>
-        <summary>Controller State</summary>
+        <summary>Hand tracking and object interaction States</summary>
         <p>
-          This sample demonstrates XRInputSource Gamepad integration. It shows 
-          one box per available button. Pressing the button toggles the associated 
-          box's color. Use joystick/touchpad input to move boxes in 2 dimensions.
+          This sample involves hand tracking and object interaction (pick up & put down a small tile ) 
+
+          
           <a class="back" href="./index.html">Back</a>
         </p>
       </details>
@@ -56,6 +56,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {InlineViewerHelper} from './js/util/inline-viewer-helper.js';
       import {QueryArgs} from './js/util/query-args.js';
 
+    // This library matches XRInputSource profiles to available controller models for us.
+    import { fetchProfile } from 'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/motion-controllers@1.0/dist/motion-controllers.module.js';
+  // The path of the CDN the sample will fetch controller models from.
+    const DEFAULT_PROFILES_PATH = 'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets@1.0/dist/profiles';
+
       // If requested, use the polyfill to provide support for mobile devices
       // and devices which only support WebVR.
       import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
@@ -70,7 +75,26 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrButton = null;
       let xrImmersiveRefSpace = null;
       let inlineViewerHelper = null;
-
+    let xrButton = null;
+    let xrRefSpace = null;
+    let isAR = false;
+    let radii = new Float32Array(25);
+    let positions = new Float32Array(16*25);
+    // Boxes
+    let boxes_left = [];
+    let boxes_right = [];
+    let boxes_none = [];
+    let tracked_boxes_left = [];
+    let tracked_boxes_right = [];
+    let tracked_boxes_none = [];
+    let boxes = { input_left: boxes_left, input_right: boxes_right, input_none: boxes_none, tracked_left: tracked_boxes_left, tracked_right: tracked_boxes_right, tracked_none: tracked_boxes_none };
+    let indexFingerBoxes = { input_left: null, input_right: null, tracked_left: null, tracked_right: null };
+    const defaultBoxColor = {r: 0.5, g: 0.5, b: 0.5};
+    const leftBoxColor = {r: 1, g: 0, b: 1};
+    const rightBoxColor = {r: 0, g: 1, b: 1};
+    let interactionBox = null;
+    let leftInteractionBox = null;
+    let rightInteractionBox = null;
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
@@ -92,7 +116,60 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       const BOX_SEPARATION = 0.04;
       const BOX_SET_HEIGHT = 0.03;
       const BOX_SET_DEPTH = -0.06;
-
+  function createBoxPrimitive(r, g, b) {	
+      let boxBuilder = new BoxBuilder();	
+      boxBuilder.pushCube([0, 0, 0], 1);	
+      let boxPrimitive = boxBuilder.finishPrimitive(renderer);	
+      let boxMaterial = new PbrMaterial();	
+      boxMaterial.baseColorFactor.value = [r, g, b, 1];	
+      return renderer.createRenderPrimitive(boxPrimitive, boxMaterial);	
+    }
+        function addBox(x, y, z, r, g, b, offset) {
+      let boxRenderPrimitive = createBoxPrimitive(r, g, b);
+      let boxNode = new Node();
+      boxNode.addRenderPrimitive(boxRenderPrimitive);
+      // Marks the node as one that needs to be checked when hit testing.
+      boxNode.selectable = true;
+      return boxNode;
+    }
+function initHands() {
+      for (const box of boxes_left) {
+        scene.removeNode(box);
+      }
+      for (const box of boxes_right) {
+        scene.removeNode(box);
+      }
+      boxes_left = [];
+      boxes_right = [];
+      boxes = { input_left: boxes_left, input_right: boxes_right, input_none: boxes_none, tracked_left: tracked_boxes_left, tracked_right: tracked_boxes_right, tracked_none: tracked_boxes_none };
+      if (typeof XRHand !== 'undefined') {
+        for (let i = 0; i <= 24; i++) {
+          const r = .6 + Math.random() * .4;
+          const g = .6 + Math.random() * .4;
+          const b = .6 + Math.random() * .4;
+          boxes_left.push(addBox(0, 0, 0, r, g, b));
+          boxes_right.push(addBox(0, 0, 0, r, g, b));
+          tracked_boxes_left.push(addBox(0, 0, 0, r, g, b));
+          tracked_boxes_right.push(addBox(0, 0, 0, r, g, b));
+        }
+      }
+      if (indexFingerBoxes.input_left) {
+        scene.removeNode(indexFingerBoxes.left);
+      }
+      if (indexFingerBoxes.input_right) {
+        scene.removeNode(indexFingerBoxes.input_right);
+      }
+      if (indexFingerBoxes.tracked_left) {
+        scene.removeNode(indexFingerBoxes.tracked_left);
+      }
+      if (indexFingerBoxes.tracked_right) {
+        scene.removeNode(indexFingerBoxes.tracked_right);
+      }
+      indexFingerBoxes.input_left = addBox(0, 0, 0, leftBoxColor.r, leftBoxColor.g, leftBoxColor.b);
+      indexFingerBoxes.input_right = addBox(0, 0, 0, rightBoxColor.r, rightBoxColor.g, rightBoxColor.b);
+      indexFingerBoxes.tracked_left = addBox(0, 0, 0, leftBoxColor.r, leftBoxColor.g, leftBoxColor.b);
+      indexFingerBoxes.tracked_right = addBox(0, 0, 0, rightBoxColor.r, rightBoxColor.g, rightBoxColor.b);
+    }
       class GamepadBox extends Node {
         constructor(position) {
           super();
@@ -304,7 +381,25 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           onSessionStarted(session);
         });
       }
+  function onSourcesChange(event, type) {
+        // As input sources are connected if they are tracked-pointer devices
+        // look up which meshes should be associated with their profile and
+        // load as the controller model for that hand.
+        for (let inputSource of event.added) {
+          if (inputSource.targetRayMode == 'tracked-pointer') {
+            // Use the fetchProfile method from the motionControllers library
+            // to find the appropriate glTF mesh path for this controller.
+            fetchProfile(inputSource, DEFAULT_PROFILES_PATH).then(({profile, assetPath}) => {
+              // Typically if you wanted to animate the controllers in response
+              // to device inputs you'd create a new MotionController() instance
+              // here to handle the animation, but this sample will skip that
+              // and only display a static mesh for simplicity.
 
+              scene.inputRenderer.setControllerMesh(new Gltf2Node({url: assetPath}), inputSource.handedness, inputSource.profiles[0]);
+            });
+          }
+        }
+      }
       function onSessionStarted(session) {
         session.addEventListener('end', () => xrButton.setSession(null));
 
@@ -325,7 +420,81 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           }
           session.requestAnimationFrame(onXRFrame);
         });
+
+//Create a WebGL context to render with, initialized to be compatible
+      // with the XRDisplay we're presenting to.
+      gl = createWebGLContext({
+        xrCompatible: true
+      });
+
+      // Create a renderer with that GL context (this is just for the samples
+      // framework and has nothing to do with WebXR specifically.)
+      renderer = new Renderer(gl);
+
+      initHands();
+
+      // Set the scene's renderer, which creates the necessary GPU resources.
+      scene.setRenderer(renderer);
+
+      // Use the new WebGL context to create a XRWebGLLayer and set it as the
+      // sessions baseLayer. This allows any content rendered to the layer to
+      // be displayed on the XRDevice.
+      session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+
+      // Get a frame of reference, which is required for querying poses. In
+      // this case an 'local' frame of reference means that all poses will
+      // be relative to the location where the XRDevice was first detected.
+      session.requestReferenceSpace('local').then((refSpace) => {
+        xrRefSpace = refSpace.getOffsetReferenceSpace(new XRRigidTransform({ x: 0, y: 0, z: 0 }));
+
+        // Inform the session that we're ready to begin drawing.
+        session.requestAnimationFrame(onXRFrame);
+      });
+        
       }
+
+    function UpdateInteractables(time) {
+      // Add scene objects if not present
+      if (!interactionBox) {	
+        // Add box to demonstrate hand interaction
+        function AddInteractionBox(r, g, b) {	
+          let box = new Node();	
+          box.addRenderPrimitive(createBoxPrimitive(r, g, b));	
+          box.translation = [0, 0, -0.65];	
+          box.scale = [0.25, 0.25, 0.25];	
+          return box;	
+        }	
+        interactionBox = AddInteractionBox(defaultBoxColor.r, defaultBoxColor.g, defaultBoxColor.b);	
+        leftInteractionBox = AddInteractionBox(leftBoxColor.r, leftBoxColor.g, leftBoxColor.b);	
+        rightInteractionBox = AddInteractionBox(rightBoxColor.r, rightBoxColor.g, rightBoxColor.b);	
+        scene.addNode(interactionBox);	
+        scene.addNode(leftInteractionBox);	
+        scene.addNode(rightInteractionBox);	
+      }
+      
+      function Distance(nodeA, nodeB) {	
+        return Math.sqrt(	
+          Math.pow(nodeA.translation[0] - nodeB.translation[0], 2) +	
+          Math.pow(nodeA.translation[1] - nodeB.translation[1], 2) +	
+          Math.pow(nodeA.translation[2] - nodeB.translation[2], 2));	
+      }
+
+      // Perform distance check on interactable elements
+      const interactionDistance = interactionBox.scale[0];	
+      leftInteractionBox.visible = false;	
+      rightInteractionBox.visible = false;	
+      if (Distance(indexFingerBoxes.input_left, interactionBox) < interactionDistance) {
+        leftInteractionBox.visible = true;	
+      } else if (Distance(indexFingerBoxes.input_right, interactionBox) < interactionDistance) {
+        rightInteractionBox.visible = true;	
+      }	
+      interactionBox.visible = !(leftInteractionBox.visible || rightInteractionBox.visible);
+      
+      mat4.rotateX(interactionBox.matrix, interactionBox.matrix, time/1000);
+      mat4.rotateY(interactionBox.matrix, interactionBox.matrix, time/1500);
+      leftInteractionBox.matrix = interactionBox.matrix;
+      rightInteractionBox.matrix = interactionBox.matrix;
+    }
 
       function onEndSession(session) {
         session.end();
@@ -355,8 +524,51 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           }
         }
 
+             UpdateInteractables(t);       
+
         scene.updateInputSources(frame, refSpace);
         scene.drawXRFrame(frame, pose);
+
+        if (pose) {
+        let glLayer = session.renderState.baseLayer;
+
+        // If we do have a valid pose, bind the WebGL layer's framebuffer,
+        // which is where any content to be displayed on the XRDevice must be
+        // rendered.
+        gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+
+        // Clear the framebuffer
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        // Loop through each of the views reported by the frame and draw them
+        // into the corresponding viewport.
+        for (let view of pose.views) {
+          let viewport = glLayer.getViewport(view);
+          gl.viewport(viewport.x, viewport.y,
+            viewport.width, viewport.height);
+
+          // Draw this view of the scene. What happens in this function really
+          // isn't all that important. What is important is that it renders
+          // into the XRWebGLLayer's framebuffer, using the viewport into that
+          // framebuffer reported by the current view, and using the
+          // projection matrix and view transform from the current view.
+          // We bound the framebuffer and viewport up above, and are passing
+          // in the appropriate matrices here to be used when rendering.
+          scene.draw(view.projectionMatrix, view.transform);
+        }
+      } else {
+        // There's several options for handling cases where no pose is given.
+        // The simplest, which these samples opt for, is to simply not draw
+        // anything. That way the device will continue to show the last frame
+        // drawn, possibly even with reprojection. Alternately you could
+        // re-draw the scene again with the last known good pose (which is now
+        // likely to be wrong), clear to black, or draw a head-locked message
+        // for the user indicating that they should try to get back to an area
+        // with better tracking. In all cases it's possible that the device
+        // may override what is drawn here to show the user it's own error
+        // message, so it should not be anything critical to the application's
+        // use.
+      }
         scene.endFrame();
       }
 
