@@ -64,7 +64,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       <p>
         This sample demonstrates a simple VR session that shows the user's hands.
         If your device supports this feature, you will see your hands using a set
-        of cubes. Each cube represents a joint in your hand.
+        of cubes. Each cube represents a joint in your hand. 
+
+          + interaction (picking up and putting down object)
         <a class="back" href="./">Back</a>
       </p>
     </details>
@@ -82,10 +84,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     import { BoxBuilder } from './js/render/geometry/box-builder.js';
     import { PbrMaterial } from './js/render/materials/pbr.js';
     import { QueryArgs } from './js/util/query-args.js';
-    import {mat4} from './js/render/math/gl-matrix.js';
-    import {vec3} from './js/render/math/gl-matrix.js';
+    import {mat4, vec3, quat} from './js/render/math/gl-matrix.js';
     import {Ray} from './js/render/math/ray.js';
-
+      import {InlineViewerHelper} from './js/util/inline-viewer-helper.js';
     // This library matches XRInputSource profiles to available controller models for us.
     import { fetchProfile } from 'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/motion-controllers@1.0/dist/motion-controllers.module.js';
 
@@ -98,7 +99,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     let isAR = false;
     let radii = new Float32Array(25);
     let positions = new Float32Array(16*25);
-    
+    let floorSize = 10;
+      let floorPosition = [0, -floorSize / 2 + 0.01, 0];
+      let floorNode = null;
+
+      let boxTable = {};
+
+      const BOX_SIZE = 0.03;
+      const BOX_MOTION_RANGE = 0.010;
+      const BOX_SEPARATION = 0.04;
+      const BOX_SET_HEIGHT = 0.03;
+      const BOX_SET_DEPTH = -0.06;
     // Boxes
     let boxes_left = [];
     let boxes_right = [];
@@ -119,10 +130,149 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     let gl = null;
     let renderer = null;
     let scene = new Scene();
-   // scene.addNode(new Gltf2Node({ url: './media/gltf/space/space.gltf' }));
-   // scene.addNode(new SkyboxNode({ url: './media/textures/milky-way-4k.png' }));
-    
-    function createBoxPrimitive(r, g, b) {	
+ class GamepadBox extends Node {
+        constructor(position) {
+          super();
+
+          this.position = position;
+          let boxBuilder = new BoxBuilder();
+          boxBuilder.pushCube([0, 0, 0], BOX_SIZE);
+          let boxPrimitive = boxBuilder.finishPrimitive(renderer);
+          let boxMaterial = new PbrMaterial();
+          boxMaterial.baseColorFactor.value = [0.1, 0.1, 0.1, 1]; // grey
+          this.renderPrimitive = renderer.createRenderPrimitive(boxPrimitive, boxMaterial);
+
+          this.addRenderPrimitive(this.renderPrimitive);
+
+          mat4.identity(this.matrix);
+          mat4.translate(this.matrix, this.matrix, this.position);
+
+          this._value = 0.0;
+          this._pressed = false;
+          this._touched = false;
+          this._dx = 0.0;
+          this._dy = 0.0;
+        }
+
+        _updateTransform() {
+          mat4.identity(this.matrix);
+          mat4.translate(this.matrix, this.matrix, this.position);
+          mat4.translate(this.matrix, this.matrix, [
+            this._dx * BOX_MOTION_RANGE,
+            -this._value * BOX_SIZE * 0.5,
+            this._dy * BOX_MOTION_RANGE
+          ]);
+          mat4.scale(this.matrix, this.matrix, [1.0, 1.05 - this._value, 1.0]);
+        }
+
+        _updateColor() {
+          let color = null;
+          if (this._pressed) {
+            color = [1, 0, 0, 1]; // Red
+          } else if (this._touched) {
+            color = [0.1, 0.5, 0.1, 1]; // Dark Green
+          } else {
+            color = [0.1, 0.1, 0.1, 1];  // Grey
+          }
+
+          this.renderPrimitive.uniforms.baseColorFactor.value = color;
+        }
+
+        set value(value) {
+          if (value != this._value) {
+            this._value = value;
+            this._updateTransform();
+          }
+        }
+
+        get value() {
+          return this._value;
+        }
+
+        set pressed(value) {
+          if (value != this._pressed) {
+            this._pressed = value;
+            this._updateColor();
+          }
+        }
+
+        get pressed() {
+          return this._pressed;
+        }
+
+        set touched(value) {
+          if (value != this._touched) {
+            this._touched = value;
+            this._updateColor();
+          }
+        }
+
+        get touched() {
+          return this._touched;
+        }
+
+        move(dx, dy) {
+          this._dx = dx;
+          this._dy = dy;
+          this._updateTransform();
+        }
+      }
+      
+      class GamepadBoxSet extends Node {
+        constructor(buttonCount, axesCount) {
+          super();
+
+          let axesBoxCount = Math.ceil(axesCount / 2);
+          let rowLength = Math.max(buttonCount, axesBoxCount);
+
+          // Place the boxes in a horizontal line
+          this.buttonBoxes = [];
+          let hl = (rowLength - 1) * BOX_SEPARATION * 0.5;
+          for (let x = 0; x < buttonCount; ++x) {
+            let box = new GamepadBox([(x * BOX_SEPARATION) - hl, BOX_SET_HEIGHT, BOX_SET_DEPTH]);
+            this.buttonBoxes.push(box);
+            this.addNode(box);
+          }
+
+          this.axesBoxes = [];
+          for (let x = 0; x < axesBoxCount; ++x) {
+            let box = new GamepadBox([(x * BOX_SEPARATION) - hl, BOX_SET_HEIGHT, BOX_SET_DEPTH * 2]);
+            this.axesBoxes.push(box);
+            this.addNode(box);
+          }
+        }
+
+        update_state(gamepad) {
+          // The boxes associated with any given button will turn green if
+          // touched and red if pressed. The box height will also scale based
+          // on the button's value to make it appear like a button being pushed.
+          for (let i = 0; i < gamepad.buttons.length; ++i) {
+            this.buttonBoxes[i].pressed = gamepad.buttons[i].pressed;
+            this.buttonBoxes[i].value = gamepad.buttons[i].value;
+            this.buttonBoxes[i].touched = gamepad.buttons[i].touched;
+          }
+
+          // Axes are assumed to come in X/Y pairs and will wiggle the
+          // associated boxes around when moved.
+          for (let i = 0, j = 0; i < gamepad.axes.length; i+=2, ++j) {
+            this.axesBoxes[j].move(gamepad.axes[i], i + 1 < gamepad.axes.length ? gamepad.axes[i + 1] : 0);
+          }
+        }
+      }
+
+      function ProcessGamepad(gamepad, hand, pose) {
+        if (!(hand in boxTable)) {
+          boxTable[hand] = new GamepadBoxSet(gamepad.buttons.length, gamepad.axes.length);
+          scene.addNode(boxTable[hand]);
+        }
+
+        boxTable[hand].update_state(gamepad);
+
+        // Update the pose of the boxes to sync with the controller.
+        if (pose) {
+          boxTable[hand].matrix = pose.transform.matrix;
+        }
+      }    function createBoxPrimitive(r, g, b) {	
       let boxBuilder = new BoxBuilder();	
       boxBuilder.pushCube([0, 0, 0], 1);	
       let boxPrimitive = boxBuilder.finishPrimitive(renderer);	
