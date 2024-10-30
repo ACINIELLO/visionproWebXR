@@ -323,10 +323,20 @@ function initHands() {
         });
         document.querySelector('header').appendChild(xrButton.domElement);
 
-        if (navigator.xr) {
-          navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+      // Is WebXR available on this UA?
+      if (navigator.xr) {
+        // If the device allows creation of exclusive sessions set it as the
+        // target of the 'Enter XR' button.
+        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+          if (supported)
             xrButton.enabled = supported;
-          });
+          else
+            navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+              isAR = true;
+              xrButton.enabled = supported;
+            });
+        });
+      }
 
           navigator.xr.requestSession('inline').then(onSessionStarted);
         }
@@ -375,7 +385,7 @@ function initHands() {
       function onRequestSession() {
         return navigator.xr.requestSession('immersive-vr', {
             requiredFeatures: ['local-floor']
-        }).then((session) => {
+        },{ optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] }).then((session) => {
           xrButton.setSession(session);
           session.isImmersive = true;
           onSessionStarted(session);
@@ -403,6 +413,33 @@ function initHands() {
       function onSessionStarted(session) {
         session.addEventListener('end', () => xrButton.setSession(null));
 
+      // Listen for the sessions 'end' event so we can respond if the user
+      // or UA ends the session for any reason.
+      session.addEventListener('end', onSessionEnded);
+      session.addEventListener('inputsourceschange', onInputSourcesChange);
+      // trackedSources are still experimental. Don't rely on this feature yet.
+      session.addEventListener('trackedsourceschange', onInputSourcesChange);
+session.addEventListener('visibilitychange', e => {
+        // remove hand controller while blurred
+        if(e.session.visibilityState === 'visible-blurred') {
+          for (const box of boxes['input_left']) {
+            scene.removeNode(box);
+          }
+          for (const box of boxes['input_right']) {
+            scene.removeNode(box);
+          }
+          for (const box of boxes['tracked_left']) {
+            scene.removeNode(box);
+          }
+          for (const box of boxes['tracked_right']) {
+            scene.removeNode(box);
+          }
+        }
+      });
+
+
+
+        
         initGL();
         scene.inputRenderer.useProfileControllerMeshes(session);
 
@@ -452,6 +489,15 @@ function initHands() {
       });
         
       }
+
+      
+    function onInputSourcesChange(event) {
+      onSourcesChange(event, "input_");
+    }
+
+    function onTrackedSourcesChange(event) {
+      onSourcesChange(event, "tracked_");
+    }
 function updateSources(session, frame, refSpace, sources, type) {
       if(session.visibilityState === 'visible-blurred') {
         return;
