@@ -64,11 +64,11 @@
 
       let boxTable = {};
 
-      const BOX_SIZE = 0.3;
-      const BOX_MOTION_RANGE = 0.010;
-      const BOX_SEPARATION = 0.4;
-      const BOX_SET_HEIGHT = 0.3;
-      const BOX_SET_DEPTH = -0.6;
+      const BOX_SIZE = 3;
+      const BOX_MOTION_RANGE = 0.10;
+      const BOX_SEPARATION = 4;
+      const BOX_SET_HEIGHT = 3;
+      const BOX_SET_DEPTH = -6;
     // Boxes
     let boxes_left = [];
     let boxes_right = [];
@@ -95,7 +95,7 @@
 
           this.position = position;
           let boxBuilder = new BoxBuilder();
-          boxBuilder.pushCube([0, 0, 0], BOX_SIZE);
+          boxBuilder.pushCube([1, 1, 1], BOX_SIZE);
           let boxPrimitive = boxBuilder.finishPrimitive(renderer);
           let boxMaterial = new PbrMaterial();
           boxMaterial.baseColorFactor.value = [0.1, 0.1, 0.1, 1]; // grey
