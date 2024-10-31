@@ -36,639 +36,116 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       <details open>
         <summary>Hand tracking and object interaction States</summary>
         <p>
-          This sample involves hand tracking and object interaction (pick up & put down a small tile ) 
-
-          
+          This sample involves object interaction
           <a class="back" href="./index.html">Back</a>
         </p>
       </details>
     </header>
     <script type="module">
-      import {WebXRButton} from './js/util/webxr-button.js';
-      import {Scene} from './js/render/scenes/scene.js';
-      import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
-      import {Node} from './js/render/core/node.js';
-      import {Gltf2Node} from './js/render/nodes/gltf2.js';
-      import {SkyboxNode} from './js/render/nodes/skybox.js';
-      import {BoxBuilder} from './js/render/geometry/box-builder.js';
-      import {PbrMaterial} from './js/render/materials/pbr.js';
-      import {mat4, vec3, quat} from './js/render/math/gl-matrix.js';
-      import {InlineViewerHelper} from './js/util/inline-viewer-helper.js';
-      import {QueryArgs} from './js/util/query-args.js';
-
-    // This library matches XRInputSource profiles to available controller models for us.
-    import { fetchProfile } from 'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/motion-controllers@1.0/dist/motion-controllers.module.js';
-  // The path of the CDN the sample will fetch controller models from.
-    const DEFAULT_PROFILES_PATH = 'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets@1.0/dist/profiles';
-
-      // If requested, use the polyfill to provide support for mobile devices
-      // and devices which only support WebVR.
-      import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
-      if (QueryArgs.getBool('usePolyfill', true)) {
-        let polyfill = new WebXRPolyfill();
-      }
-
-      // If requested, don't display the frame rate info.
-      let hideStats = QueryArgs.getBool('hideStats', false);
-
-      // XR globals.
-      let xrButton = null;
-      let xrImmersiveRefSpace = null;
-      let inlineViewerHelper = null;
-    let xrButton = null;
-    let xrRefSpace = null;
-    let isAR = false;
-    let radii = new Float32Array(25);
-    let positions = new Float32Array(16*25);
-    // Boxes
-    let boxes_left = [];
-    let boxes_right = [];
-    let boxes_none = [];
-    let tracked_boxes_left = [];
-    let tracked_boxes_right = [];
-    let tracked_boxes_none = [];
-    let boxes = { input_left: boxes_left, input_right: boxes_right, input_none: boxes_none, tracked_left: tracked_boxes_left, tracked_right: tracked_boxes_right, tracked_none: tracked_boxes_none };
-    let indexFingerBoxes = { input_left: null, input_right: null, tracked_left: null, tracked_right: null };
-    const defaultBoxColor = {r: 0.5, g: 0.5, b: 0.5};
-    const leftBoxColor = {r: 1, g: 0, b: 1};
-    const rightBoxColor = {r: 0, g: 1, b: 1};
-    let interactionBox = null;
-    let leftInteractionBox = null;
-    let rightInteractionBox = null;
-      // WebGL scene globals.
-      let gl = null;
-      let renderer = null;
-      let scene = new Scene();
-      if (hideStats) {
-        scene.enableStats(false);
-      }
-      scene.addNode(new Gltf2Node({url: 'media/gltf/cube-room/cube-room.gltf'}));
-      scene.standingStats(true);
-
-      let floorSize = 10;
-      let floorPosition = [0, -floorSize / 2 + 0.01, 0];
-      let floorNode = null;
-
-      let boxTable = {};
-
-      const BOX_SIZE = 0.03;
-      const BOX_MOTION_RANGE = 0.010;
-      const BOX_SEPARATION = 0.04;
-      const BOX_SET_HEIGHT = 0.03;
-      const BOX_SET_DEPTH = -0.06;
-  function createBoxPrimitive(r, g, b) {	
-      let boxBuilder = new BoxBuilder();	
-      boxBuilder.pushCube([0, 0, 0], 1);	
-      let boxPrimitive = boxBuilder.finishPrimitive(renderer);	
-      let boxMaterial = new PbrMaterial();	
-      boxMaterial.baseColorFactor.value = [r, g, b, 1];	
-      return renderer.createRenderPrimitive(boxPrimitive, boxMaterial);	
-    }
-        function addBox(x, y, z, r, g, b, offset) {
-      let boxRenderPrimitive = createBoxPrimitive(r, g, b);
-      let boxNode = new Node();
-      boxNode.addRenderPrimitive(boxRenderPrimitive);
-      // Marks the node as one that needs to be checked when hit testing.
-      boxNode.selectable = true;
-      return boxNode;
-    }
-function initHands() {
-      for (const box of boxes_left) {
-        scene.removeNode(box);
-      }
-      for (const box of boxes_right) {
-        scene.removeNode(box);
-      }
-      boxes_left = [];
-      boxes_right = [];
-      boxes = { input_left: boxes_left, input_right: boxes_right, input_none: boxes_none, tracked_left: tracked_boxes_left, tracked_right: tracked_boxes_right, tracked_none: tracked_boxes_none };
-      if (typeof XRHand !== 'undefined') {
-        for (let i = 0; i <= 24; i++) {
-          const r = .6 + Math.random() * .4;
-          const g = .6 + Math.random() * .4;
-          const b = .6 + Math.random() * .4;
-          boxes_left.push(addBox(0, 0, 0, r, g, b));
-          boxes_right.push(addBox(0, 0, 0, r, g, b));
-          tracked_boxes_left.push(addBox(0, 0, 0, r, g, b));
-          tracked_boxes_right.push(addBox(0, 0, 0, r, g, b));
-        }
-      }
-      if (indexFingerBoxes.input_left) {
-        scene.removeNode(indexFingerBoxes.left);
-      }
-      if (indexFingerBoxes.input_right) {
-        scene.removeNode(indexFingerBoxes.input_right);
-      }
-      if (indexFingerBoxes.tracked_left) {
-        scene.removeNode(indexFingerBoxes.tracked_left);
-      }
-      if (indexFingerBoxes.tracked_right) {
-        scene.removeNode(indexFingerBoxes.tracked_right);
-      }
-      indexFingerBoxes.input_left = addBox(0, 0, 0, leftBoxColor.r, leftBoxColor.g, leftBoxColor.b);
-      indexFingerBoxes.input_right = addBox(0, 0, 0, rightBoxColor.r, rightBoxColor.g, rightBoxColor.b);
-      indexFingerBoxes.tracked_left = addBox(0, 0, 0, leftBoxColor.r, leftBoxColor.g, leftBoxColor.b);
-      indexFingerBoxes.tracked_right = addBox(0, 0, 0, rightBoxColor.r, rightBoxColor.g, rightBoxColor.b);
-    }
-      class GamepadBox extends Node {
-        constructor(position) {
-          super();
-
-          this.position = position;
-          let boxBuilder = new BoxBuilder();
-          boxBuilder.pushCube([0, 0, 0], BOX_SIZE);
-          let boxPrimitive = boxBuilder.finishPrimitive(renderer);
-          let boxMaterial = new PbrMaterial();
-          boxMaterial.baseColorFactor.value = [0.1, 0.1, 0.1, 1]; // grey
-          this.renderPrimitive = renderer.createRenderPrimitive(boxPrimitive, boxMaterial);
-
-          this.addRenderPrimitive(this.renderPrimitive);
-
-          mat4.identity(this.matrix);
-          mat4.translate(this.matrix, this.matrix, this.position);
-
-          this._value = 0.0;
-          this._pressed = false;
-          this._touched = false;
-          this._dx = 0.0;
-          this._dy = 0.0;
-        }
-
-        _updateTransform() {
-          mat4.identity(this.matrix);
-          mat4.translate(this.matrix, this.matrix, this.position);
-          mat4.translate(this.matrix, this.matrix, [
-            this._dx * BOX_MOTION_RANGE,
-            -this._value * BOX_SIZE * 0.5,
-            this._dy * BOX_MOTION_RANGE
-          ]);
-          mat4.scale(this.matrix, this.matrix, [1.0, 1.05 - this._value, 1.0]);
-        }
-
-        _updateColor() {
-          let color = null;
-          if (this._pressed) {
-            color = [1, 0, 0, 1]; // Red
-          } else if (this._touched) {
-            color = [0.1, 0.5, 0.1, 1]; // Dark Green
-          } else {
-            color = [0.1, 0.1, 0.1, 1];  // Grey
-          }
-
-          this.renderPrimitive.uniforms.baseColorFactor.value = color;
-        }
-
-        set value(value) {
-          if (value != this._value) {
-            this._value = value;
-            this._updateTransform();
-          }
-        }
-
-        get value() {
-          return this._value;
-        }
-
-        set pressed(value) {
-          if (value != this._pressed) {
-            this._pressed = value;
-            this._updateColor();
-          }
-        }
-
-        get pressed() {
-          return this._pressed;
-        }
-
-        set touched(value) {
-          if (value != this._touched) {
-            this._touched = value;
-            this._updateColor();
-          }
-        }
-
-        get touched() {
-          return this._touched;
-        }
-
-        move(dx, dy) {
-          this._dx = dx;
-          this._dy = dy;
-          this._updateTransform();
-        }
-      }
-
-      class GamepadBoxSet extends Node {
-        constructor(buttonCount, axesCount) {
-          super();
-
-          let axesBoxCount = Math.ceil(axesCount / 2);
-          let rowLength = Math.max(buttonCount, axesBoxCount);
-
-          // Place the boxes in a horizontal line
-          this.buttonBoxes = [];
-          let hl = (rowLength - 1) * BOX_SEPARATION * 0.5;
-          for (let x = 0; x < buttonCount; ++x) {
-            let box = new GamepadBox([(x * BOX_SEPARATION) - hl, BOX_SET_HEIGHT, BOX_SET_DEPTH]);
-            this.buttonBoxes.push(box);
-            this.addNode(box);
-          }
-
-          this.axesBoxes = [];
-          for (let x = 0; x < axesBoxCount; ++x) {
-            let box = new GamepadBox([(x * BOX_SEPARATION) - hl, BOX_SET_HEIGHT, BOX_SET_DEPTH * 2]);
-            this.axesBoxes.push(box);
-            this.addNode(box);
-          }
-        }
-
-        update_state(gamepad) {
-          // The boxes associated with any given button will turn green if
-          // touched and red if pressed. The box height will also scale based
-          // on the button's value to make it appear like a button being pushed.
-          for (let i = 0; i < gamepad.buttons.length; ++i) {
-            this.buttonBoxes[i].pressed = gamepad.buttons[i].pressed;
-            this.buttonBoxes[i].value = gamepad.buttons[i].value;
-            this.buttonBoxes[i].touched = gamepad.buttons[i].touched;
-          }
-
-          // Axes are assumed to come in X/Y pairs and will wiggle the
-          // associated boxes around when moved.
-          for (let i = 0, j = 0; i < gamepad.axes.length; i+=2, ++j) {
-            this.axesBoxes[j].move(gamepad.axes[i], i + 1 < gamepad.axes.length ? gamepad.axes[i + 1] : 0);
-          }
-        }
-      }
-
-      function ProcessGamepad(gamepad, hand, pose) {
-        if (!(hand in boxTable)) {
-          boxTable[hand] = new GamepadBoxSet(gamepad.buttons.length, gamepad.axes.length);
-          scene.addNode(boxTable[hand]);
-        }
-
-        boxTable[hand].update_state(gamepad);
-
-        // Update the pose of the boxes to sync with the controller.
-        if (pose) {
-          boxTable[hand].matrix = pose.transform.matrix;
-        }
-      }
-
-      // Don't bother starting an inline session in this sample since WebXR
-      // gamepads are not available during inline sessions.
-      function initXR() {
-        xrButton = new WebXRButton({
-          onRequestSession: onRequestSession,
-          onEndSession: onEndSession
-        });
-        document.querySelector('header').appendChild(xrButton.domElement);
-
-      // Is WebXR available on this UA?
-      if (navigator.xr) {
-        // If the device allows creation of exclusive sessions set it as the
-        // target of the 'Enter XR' button.
-        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
-          if (supported)
-            xrButton.enabled = supported;
-          else
-            navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
-              isAR = true;
-              xrButton.enabled = supported;
-            });
-        });
-      }
-
-          navigator.xr.requestSession('inline').then(onSessionStarted);
-        }
-      }
-
-      function initGL() {
-        if (gl)
-          return;
-
-        gl = createWebGLContext({
-          xrCompatible: true
-        });
-        document.body.appendChild(gl.canvas);
-
-        function onResize() {
-          gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
-          gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
-        }
-        window.addEventListener('resize', onResize);
-        onResize();
-
-        renderer = new Renderer(gl);
-
-        scene.setRenderer(renderer);
-
-        addFloorBox();
-      }
-
-      function addFloorBox() {
-        let boxBuilder = new BoxBuilder();
-        boxBuilder.pushCube([0, 0, 0], floorSize);
-        let boxPrimitive = boxBuilder.finishPrimitive(renderer);
-
-        let boxMaterial = new PbrMaterial();
-        boxMaterial.baseColorFactor.value = [0.3, 0.3, 0.3, 1.0];
-        let boxRenderPrimitive = renderer.createRenderPrimitive(boxPrimitive, boxMaterial);
-
-        floorNode = new Node();
-        floorNode.addRenderPrimitive(boxRenderPrimitive);
-        floorNode.selectable = true;
-        scene.addNode(floorNode);
-        mat4.identity(floorNode.matrix);
-        mat4.translate(floorNode.matrix, floorNode.matrix, floorPosition);
-      }
-
-      function onRequestSession() {
-        return navigator.xr.requestSession('immersive-vr', {
-            requiredFeatures: ['local-floor']
-        },{ optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] }).then((session) => {
-          xrButton.setSession(session);
-          session.isImmersive = true;
-          onSessionStarted(session);
-        });
-      }
-  function onSourcesChange(event, type) {
-        // As input sources are connected if they are tracked-pointer devices
-        // look up which meshes should be associated with their profile and
-        // load as the controller model for that hand.
-        for (let inputSource of event.added) {
-          if (inputSource.targetRayMode == 'tracked-pointer') {
-            // Use the fetchProfile method from the motionControllers library
-            // to find the appropriate glTF mesh path for this controller.
-            fetchProfile(inputSource, DEFAULT_PROFILES_PATH).then(({profile, assetPath}) => {
-              // Typically if you wanted to animate the controllers in response
-              // to device inputs you'd create a new MotionController() instance
-              // here to handle the animation, but this sample will skip that
-              // and only display a static mesh for simplicity.
-
-              scene.inputRenderer.setControllerMesh(new Gltf2Node({url: assetPath}), inputSource.handedness, inputSource.profiles[0]);
-            });
-          }
-        }
-      }
-      function onSessionStarted(session) {
-        session.addEventListener('end', () => xrButton.setSession(null));
-
-      // Listen for the sessions 'end' event so we can respond if the user
-      // or UA ends the session for any reason.
-      session.addEventListener('end', onSessionEnded);
-      session.addEventListener('inputsourceschange', onInputSourcesChange);
-      // trackedSources are still experimental. Don't rely on this feature yet.
-      session.addEventListener('trackedsourceschange', onInputSourcesChange);
-session.addEventListener('visibilitychange', e => {
-        // remove hand controller while blurred
-        if(e.session.visibilityState === 'visible-blurred') {
-          for (const box of boxes['input_left']) {
-            scene.removeNode(box);
-          }
-          for (const box of boxes['input_right']) {
-            scene.removeNode(box);
-          }
-          for (const box of boxes['tracked_left']) {
-            scene.removeNode(box);
-          }
-          for (const box of boxes['tracked_right']) {
-            scene.removeNode(box);
-          }
-        }
-      });
-
-
-
-        
-        initGL();
-        scene.inputRenderer.useProfileControllerMeshes(session);
-
-        session.updateRenderState({
-          baseLayer : new XRWebGLLayer(session, gl)
-        });
-
-        let refSpaceType = session.isImmersive ? 'local-floor' : 'viewer';
-        session.requestReferenceSpace(refSpaceType).then((refSpace) => {
-          if (session.isImmersive) {
-            xrImmersiveRefSpace = refSpace;
-          } else {
-            inlineViewerHelper = new InlineViewerHelper(gl.canvas, refSpace);
-            inlineViewerHelper.setHeight(1.6);
-          }
-          session.requestAnimationFrame(onXRFrame);
-        });
-
-//Create a WebGL context to render with, initialized to be compatible
-      // with the XRDisplay we're presenting to.
-      gl = createWebGLContext({
-        xrCompatible: true
-      });
-
-      // Create a renderer with that GL context (this is just for the samples
-      // framework and has nothing to do with WebXR specifically.)
-      renderer = new Renderer(gl);
-
-      initHands();
-
-      // Set the scene's renderer, which creates the necessary GPU resources.
-      scene.setRenderer(renderer);
-
-      // Use the new WebGL context to create a XRWebGLLayer and set it as the
-      // sessions baseLayer. This allows any content rendered to the layer to
-      // be displayed on the XRDevice.
-      session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
-
-      // Get a frame of reference, which is required for querying poses. In
-      // this case an 'local' frame of reference means that all poses will
-      // be relative to the location where the XRDevice was first detected.
-      session.requestReferenceSpace('local').then((refSpace) => {
-        xrRefSpace = refSpace.getOffsetReferenceSpace(new XRRigidTransform({ x: 0, y: 0, z: 0 }));
-
-        // Inform the session that we're ready to begin drawing.
-        session.requestAnimationFrame(onXRFrame);
-      });
-        
-      }
-
-      
-    function onInputSourcesChange(event) {
-      onSourcesChange(event, "input_");
-    }
-
-    function onTrackedSourcesChange(event) {
-      onSourcesChange(event, "tracked_");
-    }
-function updateSources(session, frame, refSpace, sources, type) {
-      if(session.visibilityState === 'visible-blurred') {
-        return;
-      }
-      for (let inputSource of sources) {
-        let hand_type = type + inputSource.handedness;
-        if (type == "input_") {
-          let targetRayPose = frame.getPose(inputSource.targetRaySpace, refSpace);
-          if (targetRayPose) {
-            if (inputSource.targetRayMode == 'tracked-pointer') {
-              scene.inputRenderer.addLaserPointer(targetRayPose.transform);
-            }
-
-            let targetRay = new Ray(targetRayPose.transform);
-            let cursorDistance = 2.0;
-            let cursorPos = vec3.fromValues(
-                targetRay.origin.x,
-                targetRay.origin.y,
-                targetRay.origin.z
-                );
-            vec3.add(cursorPos, cursorPos, [
-                targetRay.direction.x * cursorDistance,
-                targetRay.direction.y * cursorDistance,
-                targetRay.direction.z * cursorDistance,
-                ]);
-
-            scene.inputRenderer.addCursor(cursorPos);
-          }
-        }
-
-        if (!inputSource.hand && inputSource.gripSpace) {
-          let gripPose = frame.getPose(inputSource.gripSpace, refSpace);
-          if (gripPose) {
-            scene.inputRenderer.addController(gripPose.transform.matrix, inputSource.handedness, inputSource.profiles[0]);
-          } else {
-            scene.inputRenderer.hideController(hand_type);
-          }
-        }
-
-        let offset = 0;
-        if (!inputSource.hand) {
-          for (const box of boxes[hand_type]) {
-            scene.removeNode(box);
-          }
-          scene.removeNode(indexFingerBoxes[hand_type]);
-
-          continue;
-        } else {
-          let pose = frame.getPose(inputSource.targetRaySpace, refSpace);
-          if (pose === undefined) {
-            console.log("no pose");
-          }
-
-          if (!frame.fillJointRadii(inputSource.hand.values(), radii)) {
-            console.log("no fillJointRadii");
-            continue;
-          }
-          if (!frame.fillPoses(inputSource.hand.values(), refSpace, positions)) {
-            console.log("no fillPoses");
-            continue;
-          }
-          for (const box of boxes[hand_type]) {
-            scene.addNode(box);
-            let matrix = positions.slice(offset * 16, (offset + 1) * 16);
-            let jointRadius = radii[offset];
-            offset++;
-            mat4.getTranslation(box.translation, matrix);
-            mat4.getRotation(box.rotation, matrix);
-            box.scale = [jointRadius, jointRadius, jointRadius];
-          }
-          	
-          // Render a special box for each index finger on each hand	
-          const indexFingerBox = indexFingerBoxes[hand_type];
-          scene.addNode(indexFingerBox);	
-          let joint = inputSource.hand.get('index-finger-tip');	
-          let jointPose = frame.getJointPose(joint, xrRefSpace);	
-          if (jointPose) {	
-            let matrix = jointPose.transform.matrix;
-            mat4.getTranslation(indexFingerBox.translation, matrix);
-            mat4.getRotation(indexFingerBox.rotation, matrix);
-            indexFingerBox.scale = [0.02, 0.02, 0.02];	
-          }
-        }
-      }
-    }
-
-        function updateInputSources(session, frame, refSpace) {
-      updateSources(session, frame, refSpace, session.inputSources, "input_");
-    }
-
-    function UpdateInteractables(time) {
-      // Add scene objects if not present
-      if (!interactionBox) {	
-        // Add box to demonstrate hand interaction
-        function AddInteractionBox(r, g, b) {	
-          let box = new Node();	
-          box.addRenderPrimitive(createBoxPrimitive(r, g, b));	
-          box.translation = [0, 0, -0.65];	
-          box.scale = [0.25, 0.25, 0.25];	
-          return box;	
-        }	
-        interactionBox = AddInteractionBox(defaultBoxColor.r, defaultBoxColor.g, defaultBoxColor.b);	
-        leftInteractionBox = AddInteractionBox(leftBoxColor.r, leftBoxColor.g, leftBoxColor.b);	
-        rightInteractionBox = AddInteractionBox(rightBoxColor.r, rightBoxColor.g, rightBoxColor.b);	
-        scene.addNode(interactionBox);	
-        scene.addNode(leftInteractionBox);	
-        scene.addNode(rightInteractionBox);	
-      }
-      
-      function Distance(nodeA, nodeB) {	
-        return Math.sqrt(	
-          Math.pow(nodeA.translation[0] - nodeB.translation[0], 2) +	
-          Math.pow(nodeA.translation[1] - nodeB.translation[1], 2) +	
-          Math.pow(nodeA.translation[2] - nodeB.translation[2], 2));	
-      }
-
-      // Perform distance check on interactable elements
-      const interactionDistance = interactionBox.scale[0];	
-      leftInteractionBox.visible = false;	
-      rightInteractionBox.visible = false;	
-      if (Distance(indexFingerBoxes.input_left, interactionBox) < interactionDistance) {
-        leftInteractionBox.visible = true;	
-      } else if (Distance(indexFingerBoxes.input_right, interactionBox) < interactionDistance) {
-        rightInteractionBox.visible = true;	
-      }	
-      interactionBox.visible = !(leftInteractionBox.visible || rightInteractionBox.visible);
-      
-      mat4.rotateX(interactionBox.matrix, interactionBox.matrix, time/1000);
-      mat4.rotateY(interactionBox.matrix, interactionBox.matrix, time/1500);
-      leftInteractionBox.matrix = interactionBox.matrix;
-      rightInteractionBox.matrix = interactionBox.matrix;
-    }
-
-      function onEndSession(session) {
-        session.end();
-      }
-
-      function onSessionEnded(event) {
-        if (event.session.isImmersive) {
-          xrButton.setSession(null);
-        }
-      }
-
-      function onXRFrame(time, frame) {
-        let session = frame.session;
-        let refSpace = session.isImmersive ?
-                         xrImmersiveRefSpace :
-                         inlineViewerHelper.referenceSpace;
-
-        let pose = frame.getViewerPose(refSpace);
-        scene.startFrame();
-        session.requestAnimationFrame(onXRFrame);
-
-        // Check for and respond to any gamepad state changes.
-        for (let source of session.inputSources) {
-          if (source.gamepad) {
-            let pose = frame.getPose(source.gripSpace, refSpace);
-            ProcessGamepad(source.gamepad, source.handedness, pose);
-          }
-        }
-      updateInputSources(session, frame, xrRefSpace);
-
-             UpdateInteractables(t);       
-
-        scene.updateInputSources(frame, refSpace);
-        scene.drawXRFrame(frame, pose);
-        scene.endFrame();
-      }
-
-      // Start the XR application.
-      initXR();
+    src = "https://cdn.babylonjs.com/babylon.js"
     </script>
+    <canvas id="renderCanvas"></canvas>
+
+	<script>
+        const canvas = document.getElementById("renderCanvas"); // Get the canvas element
+    var createScene = async function () {
+
+    // This creates a basic Babylon Scene object (non-mesh)
+    var scene = new BABYLON.Scene(engine);
+
+    // This creates and positions a free camera (non-mesh)
+    var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 5, -5), scene);
+
+    // This targets the camera to scene origin
+    camera.setTarget(BABYLON.Vector3.Zero());
+
+    // This attaches the camera to the canvas
+    camera.attachControl(canvas, true);
+
+    // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
+    var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+
+    // Default intensity is 1. Let's dim the light a small amount
+    light.intensity = 0.7;
+
+    // Our built-in 'sphere' shape.
+    var sphere = BABYLON.MeshBuilder.CreateSphere("sphere", { diameter: 1.4, segments: 32 }, scene);
+
+    // Move the sphere upward 1/2 its height
+    sphere.position.y = 1;
+
+    sphere.material = new BABYLON.StandardMaterial("sphereMat", scene);
+
+    const environment = scene.createDefaultEnvironment();
+
+    // GUI
+    var plane = BABYLON.Mesh.CreatePlane("plane", 1);
+    plane.isNearPickable = true;
+    plane.position = new BABYLON.Vector3(1.4, 1.5, 0.4)
+    var advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateForMesh(plane);
+    var panel = new BABYLON.GUI.StackPanel();
+    advancedTexture.addControl(panel);
+    var header = new BABYLON.GUI.TextBlock();
+    header.text = "Color GUI";
+    header.height = "100px";
+    header.color = "white";
+    header.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+    header.fontSize = "120"
+    panel.addControl(header);
+    var picker = new BABYLON.GUI.ColorPicker();
+    picker.value = sphere.material.diffuseColor;
+    picker.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+    picker.height = "350px";
+    picker.width = "350px";
+    picker.onValueChangedObservable.add(function (value) {
+        sphere.material.diffuseColor.copyFrom(value);
+    });
+    panel.addControl(picker);
+
+    const marker = BABYLON.CreateBox("marker", {
+        size: 0.1
+    })
+
+    // XR
+    const xrHelper = await scene.createDefaultXRExperienceAsync({
+        floorMeshes: [environment.ground]
+    });
+
+    var startingPoint, currentMesh, current;
+    scene.onPointerObservable.add((p) => {
+        switch (p.type) {
+            case BABYLON.PointerEventTypes.POINTERDOWN:
+                console.log("POINTING DOWN");
+                if (p.pickInfo.hit) {
+                    console.log("POINTING DOWN and hit");
+                    currentMesh = p.pickInfo.pickedMesh;
+
+                }
+                break;
+            case BABYLON.PointerEventTypes.POINTERMOVE:
+
+                if (p.pickInfo.hit && p.pickInfo.pickedMesh == currentMesh) {
+                    console.log("POINTING MOVE and hit");
+                    marker.position.copyFrom(p.pickInfo.pickedPoint);
+                    marker.addChild(currentMesh);
+                    marker.isVisible = true;
+                }
+
+                break;
+            case BABYLON.PointerEventTypes.POINTERUP:
+                header.text += `up: ${p.pickInfo.pickedMesh?.name} (${p.event.pointerId - 200})\n`
+                console.log(p);
+                marker.isVisible = false;
+                marker.removeChild(currentMesh);
+                currentMesh = null;
+                break;
+
+
+        }
+    })
+
+    return scene;
+
+};
   </body>
 </html>
